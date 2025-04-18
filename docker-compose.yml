@@ -74,7 +74,7 @@ services:
       - REACT_APP_API_BASE_URL=/api
       - REACT_APP_SOCKET_URL=/
     ports:
-      - "3001:80"
+      - "3001:61234"
     networks:
       - app-network
 
