@@ -23,7 +23,6 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch initial jobs
     fetchJobs();
 
     // Set up socket connection for real-time updates
@@ -39,12 +38,10 @@ function App() {
         const jobIndex = prevJobs.findIndex(job => job._id === updatedJob._id);
         
         if (jobIndex !== -1) {
-          // Update existing job
           const updatedJobs = [...prevJobs];
           updatedJobs[jobIndex] = updatedJob;
           return updatedJobs;
         } else {
-          // Add new job
           return [updatedJob, ...prevJobs];
         }
       });
@@ -59,7 +56,6 @@ function App() {
       setError('WebSocket connection error. Please refresh the page.');
     });
     
-    // Clean up socket connection
     return () => {
       socket.disconnect();
     };
@@ -114,7 +110,6 @@ function App() {
       <div className="max-w-5xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-center mb-8">Real-Time Regex Validator</h1>
         
-        {/* Submission Form */}
         <div className="bg-white shadow-md rounded-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Submit a String</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -147,9 +142,8 @@ function App() {
           </form>
         </div>
         
-        {/* Jobs List */}
         <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Job History</h2>
+          <h2 className="text-xl font-semibold mb-4">Jobs</h2>
           
           {loading && jobs.length === 0 ? (
             <div className="text-center py-4">Loading jobs...</div>

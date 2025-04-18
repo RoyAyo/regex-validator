@@ -1,4 +1,7 @@
-import { IsEnum, IsNotEmpty, IsString } from "class-validator";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
+
+export type JobDocument = Job & Document;
 
 export enum JobStatus {
   VALIDATING = 'Validating',
@@ -6,18 +9,20 @@ export enum JobStatus {
   INVALID = 'Invalid',
 }
 
+@Schema({ timestamps: true })
 export class Job {
-  @IsString()
-  @IsNotEmpty()
-  jobId: string;
-
-  @IsString()
-  @IsNotEmpty()
+  @Prop({ required: true })
   inputString: string;
 
-  @IsString()
+  @Prop({ required: true })
   regexPattern: string;
 
-  @IsEnum(JobStatus)
+  @Prop({
+    required: true,
+    enum: JobStatus,
+    default: JobStatus.VALIDATING,
+  })
   status: JobStatus;
 }
+
+export const JobSchema = SchemaFactory.createForClass(Job);

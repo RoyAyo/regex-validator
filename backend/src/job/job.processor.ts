@@ -22,38 +22,31 @@ export class JobProcessor implements OnModuleInit {
   }
 
   async onModuleInit() {
-    // Subscribe to job validation topic
     this.kafkaClient.subscribeToResponseOf('job.validate');
 
-    // Consume validation requests
-    this.kafkaClient
-      .createConsumer()
-      .subscribe({ topic: 'job.validate' })
-      .run({
-        eachMessage: async ({ topic, partition, message }) => {
-          try {
-            const messageValue = JSON.parse(message.value.toString());
-            await this.processJob(messageValue);
-          } catch (error) {
-            this.logger.error(`Error processing job: ${error.message}`);
-          }
-        },
-      });
+    await this.kafkaClient.connect();
+
+    this.kafkaClient.subscribeToResponseOf('job.validate');
+    this.kafkaClient.on('message', async (message) => {
+      try {
+        const messageValue = JSON.parse(message.value.toString());
+        await this.processJob(messageValue);
+      } catch (error) {
+        this.logger.error(`Error processing job: ${error.message}`);
+      }
+    });
   }
 
   async processJob(job: any): Promise<void> {
     this.logger.log(`Processing job ${job.id} with input: ${job.inputString}`);
 
-    // Simulate processing delay
     await new Promise((resolve) => setTimeout(resolve, this.processingDelay));
 
     try {
-      // Validate the string against the regex pattern
       const regex = new RegExp(job.regexPattern);
       const isValid = regex.test(job.inputString);
       const status = isValid ? JobStatus.VALID : JobStatus.INVALID;
 
-      // Update job status
       await this.jobService.updateJobStatus(job.id, status);
       this.logger.log(`Job ${job.id} processed: ${status}`);
     } catch (error) {

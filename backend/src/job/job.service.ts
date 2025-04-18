@@ -1,9 +1,9 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { InjectRedis } from '@nestjs-modules/ioredis';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { ClientKafka } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
-import { Job, JobStatus } from './schemas/job.schema';
+import { Job, JobDocument, JobStatus } from './schemas/job.schema';
 import { CreateJobDto } from './dto/create-job.dto';
 import { EventGateway } from './event.gateway';
 
@@ -13,13 +13,12 @@ export class JobService {
   private readonly regexPattern: string;
 
   constructor(
+    @InjectModel(Job.name) private jobModel: Model<JobDocument>,
     @Inject('KAFKA_PRODUCER') private kafkaClient: ClientKafka,
-    @InjectRedis() private readonly redis: Redis,
     private configService: ConfigService,
     private eventGateway: EventGateway,
   ) {
-    this.regexPattern =
-      this.configService.get<string>('REGEX_PATTERN') || '^[a-zA-Z0-9]+$';
+    this.regexPattern = this.configService.get<string>('REGEX_PATTERN') || '^[a-zA-Z0-9]+$';
     this.logger.log(`Using regex pattern: ${this.regexPattern}`);
   }
 
@@ -28,45 +27,45 @@ export class JobService {
     await this.kafkaClient.connect();
   }
 
-  private async _createJobCache(jobDetails: Job): Promise<void> {
-    await this.redis.hset(
-      'jobs_cache',
-      jobDetails.jobId,
-      JSON.stringify(jobDetails),
-    );
-  }
-
-  async createJobStatus(createJobDto: CreateJobDto): Promise<Job> {
-
-    const jobId = new Date().getTime().toString();
-    
-    const jobDetails = {
-      jobId,
+  async create(createJobDto: CreateJobDto): Promise<Job> {
+    const createdJob = new this.jobModel({
       inputString: createJobDto.inputString,
       regexPattern: this.regexPattern,
       status: JobStatus.VALIDATING,
-    };
-
-    await this._createJobCache(jobDetails);
+    });
     
-    this.logger.log(`Job created with ID: ${jobId}`);
-    this.eventGateway.notifyJobUpdate(jobDetails);
-
+    const savedJob = await createdJob.save();
+    this.logger.log(`Job created with ID: ${savedJob._id}`);
+    
     // Send job to Kafka for processing
     this.kafkaClient.emit('job.validate', {
-      id: jobId,
-      inputString: jobDetails.inputString,
-      regexPattern: jobDetails.regexPattern,
+      id: savedJob._id.toString(),
+      inputString: savedJob.inputString,
+      regexPattern: savedJob.regexPattern,
     });
-
-    return jobDetails;
+    
+    // Notify clients about new job
+    this.eventGateway.notifyJobUpdate(savedJob);
+    
+    return savedJob;
   }
 
-  async findAll(): Promise<Record<string, string>[]> {
-    const jobs = await this.redis.hgetall('jobs_cache');
-    return Object.entries(jobs).map(([id, value]) => ({
-      id,
-      data: JSON.parse(value),
-    }));
+  async updateJobStatus(jobId: string, status: JobStatus): Promise<Job> {
+    const updatedJob = await this.jobModel.findByIdAndUpdate(
+      jobId,
+      { status },
+      { new: true },
+    );
+    
+    if (updatedJob) {
+      this.logger.log(`Job ${jobId} updated to status: ${status}`);
+      this.eventGateway.notifyJobUpdate(updatedJob);
+    }
+    
+    return updatedJob;
+  }
+
+  async findAll(): Promise<Job[]> {
+    return this.jobModel.find().sort({ createdAt: -1 }).exec();
   }
 }
