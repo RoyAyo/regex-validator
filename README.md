@@ -7,7 +7,7 @@
 ### 🔧 Environment Setup
 Update the `docker-compose.yml` file with the config as required.
 OR
-Create a `.env` file at the root with:
+>Create a `.env` file at the root with:
 
 ```env
 REGEX_PATTERN=^[a-zA-Z0-9]+$
@@ -17,8 +17,6 @@ REDIS_URL=redis://redis:6379
 KAFKA_BROKER=kafka:9092
 ```
 and use .env_file instead in the yml config.
-
-> You may also modify `docker-compose.yml` to include these directly if preferred.
 
 ---
 
