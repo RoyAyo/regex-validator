@@ -78,3 +78,5 @@ Then open the frontend at [http://localhost:61234](http://localhost:61234)
 - **Socket.IO Gateway (NestJS)**: Emits job status updates.
 - **Frontend** subscribes to events:
   - `jobUpdate`
+
+  NB: I added a fallback event update to the jobs due to the kafka inconsistencies currently to ensure it works perfectly, I didn't have enough time to find a fullproof Kafka settings given the time. 
