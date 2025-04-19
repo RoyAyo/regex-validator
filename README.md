@@ -77,5 +77,3 @@ Then open the frontend at [http://localhost:61234](http://localhost:61234)
 - **Socket.IO Gateway (NestJS)**: Emits job status updates.
 - **Frontend** subscribes to events:
   - `jobUpdate`
-
----

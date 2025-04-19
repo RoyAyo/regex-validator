@@ -59,6 +59,9 @@ services:
       - KAFKA_BROKER=kafka:9092
       - REGEX_PATTERN=^[a-zA-Z0-9]+$
       - PROCESSING_DELAY_MS=3000
+    ports:
+      - "3000:3000" 
+    # No ports exposed to host, only accessible within docker network
     networks:
       - app-network
 
@@ -71,10 +74,10 @@ services:
     depends_on:
       - backend
     environment:
-      - REACT_APP_API_BASE_URL=/api
-      - REACT_APP_SOCKET_URL=/
+      - VITE_API_BASE_URL=http://backend:3000
+      - VITE_SOCKET_URL=http://backend:3000
     ports:
-      - "3001:61234"
+      - "3001:3001"  # Only the frontend is exposed to the host
     networks:
       - app-network
 

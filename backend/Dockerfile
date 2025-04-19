@@ -25,7 +25,7 @@ USER nestuser
 ENV NODE_ENV=production
 ENV PORT=3000
 
-EXPOSE 3000
+EXPOSE 3001
 
 CMD ["node", "dist/main.js"]
     

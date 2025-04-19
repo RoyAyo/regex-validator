@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ClientKafka } from '@nestjs/microservices';
+import { ClientKafka, EventPattern, Payload } from '@nestjs/microservices';
 import { JobService } from './job.service';
 import { JobStatus } from './schemas/job.schema';
 
@@ -15,31 +15,29 @@ export class JobProcessor implements OnModuleInit {
     private jobService: JobService,
   ) {
     this.processingDelay =
-      Number(this.configService.get<string>('PROCESSING_DELAY_MS')) || 2000;
+      Number(this.configService.get<string>('PROCESSING_DELAY_MS')) || 1000;
     this.logger.log(
       `Job processor initialized with delay: ${this.processingDelay}ms`,
     );
   }
 
   async onModuleInit() {
-    this.kafkaClient.subscribeToResponseOf('job.validate');
-
     await this.kafkaClient.connect();
+    this.logger.log('Connected to Kafka for job.validate consumption');
+  }
 
-    this.kafkaClient.subscribeToResponseOf('job.validate');
-    this.kafkaClient.on('message', async (message) => {
-      try {
-        const messageValue = JSON.parse(message.value.toString());
-        await this.processJob(messageValue);
-      } catch (error) {
-        this.logger.error(`Error processing job: ${error.message}`);
-      }
-    });
+  @EventPattern('job.validate')
+  async handleJob(@Payload() message: any) {
+    try {
+      const job = message.value;
+      this.logger.log(`Received job ${job.id} with input: ${job.inputString}`);
+      await this.processJob(job);
+    } catch (error) {
+      this.logger.error(`Error processing job: ${error.message}`);
+    }
   }
 
   async processJob(job: any): Promise<void> {
-    this.logger.log(`Processing job ${job.id} with input: ${job.inputString}`);
-
     await new Promise((resolve) => setTimeout(resolve, this.processingDelay));
 
     try {

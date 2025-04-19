@@ -11,6 +11,7 @@ import { EventGateway } from './event.gateway';
 export class JobService {
   private readonly logger = new Logger(JobService.name);
   private readonly regexPattern: string;
+  private readonly processingDelay: number;
 
   constructor(
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
@@ -19,12 +20,29 @@ export class JobService {
     private eventGateway: EventGateway,
   ) {
     this.regexPattern = this.configService.get<string>('REGEX_PATTERN') || '^[a-zA-Z0-9]+$';
+    this.processingDelay =
+      Number(this.configService.get<string>('PROCESSING_DELAY_MS')) || 500;
     this.logger.log(`Using regex pattern: ${this.regexPattern}`);
   }
 
   async onModuleInit() {
-    this.kafkaClient.subscribeToResponseOf('job.validate');
     await this.kafkaClient.connect();
+  }
+
+  private async _processJob(job: any): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, this.processingDelay));
+    console.log('Processing job:', job);
+    try {
+      const regex = new RegExp(job.regexPattern);
+      const isValid = regex.test(job.inputString);
+      const status = isValid ? JobStatus.VALID : JobStatus.INVALID;
+
+      await this.updateJobStatus(job.id, status);
+      this.logger.log(`Job ${job.id} processed: ${status}`);
+    } catch (error) {
+      this.logger.error(`Error during job validation: ${error.message}`);
+      await this.updateJobStatus(job.id, JobStatus.INVALID);
+    }
   }
 
   async create(createJobDto: CreateJobDto): Promise<Job> {
@@ -37,14 +55,13 @@ export class JobService {
     const savedJob = await createdJob.save();
     this.logger.log(`Job created with ID: ${savedJob._id}`);
     
-    // Send job to Kafka for processing
     this.kafkaClient.emit('job.validate', {
       id: savedJob._id.toString(),
       inputString: savedJob.inputString,
       regexPattern: savedJob.regexPattern,
     });
     
-    // Notify clients about new job
+    this._processJob(savedJob);
     this.eventGateway.notifyJobUpdate(savedJob);
     
     return savedJob;
